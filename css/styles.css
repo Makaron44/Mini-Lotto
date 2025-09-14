@@ -1,0 +1,118 @@
+
+:root{
+  --bg:#0b1020; --panel:#0f172a; --text:#e5e7eb; --muted:#94a3b8; --accent:#60a5fa; --primary:#22c55e; --border:#1f2937; --danger:#ef4444;
+  --safe-top: env(safe-area-inset-top); --safe-right: env(safe-area-inset-right); --safe-bottom: env(safe-area-inset-bottom); --safe-left: env(safe-area-inset-left);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Helvetica Neue,Arial}
+body{padding-top:var(--safe-top);padding-right:var(--safe-right);padding-bottom:var(--safe-bottom);padding-left:var(--safe-left)}
+header{padding:calc(12px + var(--safe-top)) 12px 8px}
+h1{margin:0 0 4px;font-size:22px}
+.sub{margin:0;color:var(--muted);font-size:14px}
+.nav{display:flex;gap:8px;margin:10px 12px 0;flex-wrap:wrap}
+.nav a{display:inline-block;padding:8px 12px;border-radius:10px;background:#0b132b;color:var(--text);text-decoration:none;border:1px solid var(--border)}
+.nav a[aria-current="page"]{outline:2px solid var(--accent)}
+main{padding:12px;min-height:100svh}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px;margin:0 0 12px}
+.split{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;align-items:end}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.divider{height:1px;background:var(--border);margin:10px 0}
+label{display:block;font-size:13px;color:var(--muted);margin:0 0 4px}
+input,select{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:#0b132b;color:var(--text)}
+input::placeholder{color:#64748b}
+.btn{padding:9px 12px;border-radius:10px;border:1px solid var(--border);background:#0b132b;color:var(--text);cursor:pointer}
+.btn.primary{background:linear-gradient(180deg,#34d399,#10b981);color:#062a26;font-weight:700;border-color:#065f46}
+.btn.ghost{background:transparent}
+.btn.danger{background:#2a0f12;border-color:#7f1d1d;color:#fecaca}
+.pill{display:inline-flex;align-items:center;justify-content:center;padding:6px 10px;border-radius:999px;background:#111827;border:1px solid #1f2937;min-width:36px;text-align:center}
+.small{font-size:12px}
+.muted{color:var(--muted)}
+@media print{body{background:#fff;color:#000;padding:0}.nav,.toolbar button{display:none!important}.card{border:1px solid #ddd}}
+/* ===== Neon Pack (drop-in) ===== */
+:root{
+  --neon: #34d399;         /* zielony neon */
+  --neon-b: #10b981;       /* mocniejszy neon */
+  --neon-blue: #60a5fa;    /* akcent niebieski */
+}
+
+/* Trafienia – neon tylko w sekcji wyników */
+#out .pill{
+  background: linear-gradient(180deg, #0b1f1a, #12352c);
+  border-color: #064e3b;
+  box-shadow:
+    0 0 .6rem rgba(52,211,153,.35),
+    0 0 1.1rem rgba(52,211,153,.25),
+    inset 0 0 .4rem rgba(52,211,153,.12);
+  text-shadow: 0 0 .35rem rgba(167,243,208,.35);
+  transition: transform .15s ease, box-shadow .2s ease;
+}
+#out .pill:hover{ transform: translateY(-1px); }
+
+/* (Opcjonalnie) mega-highlight np. dla „szóstki” – nadaj klasę .win gdy chcesz */
+.pill.win{
+  background: #05291f;
+  border-color: #f59e0b;
+  box-shadow:
+    0 0 1.2rem rgba(250,204,21,.55),
+    0 0 .25rem rgba(250,204,21,.65),
+    inset 0 0 .4rem rgba(250,204,21,.25);
+}
+
+/* Przyciski – delikatny neonowy border-glow przy hover/focus */
+.btn{ transition: transform .12s ease, box-shadow .2s ease; }
+.btn:hover{ transform: translateY(-1px); }
+.btn.primary{
+  position: relative;
+  isolation: isolate;
+}
+.btn.primary::before{
+  content:"";
+  position:absolute; inset:-2px; border-radius:12px;
+  background: conic-gradient(from 180deg, var(--neon), var(--neon-blue), var(--neon));
+  filter: blur(12px);
+  opacity: 0; transition: opacity .2s ease; z-index:-1;
+}
+.btn.primary:hover::before,
+.btn.primary:focus-visible::before{ opacity:.85; }
+
+/* Focus – wyraźny, ale estetyczny (klawiatura/akces) */
+input:focus-visible,
+select:focus-visible,
+button:focus-visible{
+  outline: 0;
+  border-color: #2563eb;
+  box-shadow:
+    0 0 0 .14rem rgba(37,99,235,.55),
+    0 0 0 .34rem rgba(16,185,129,.40);
+}
+
+/* Link aktywny w nawigacji – neonowa „poświata” */
+.nav a[aria-current="page"]{
+  outline: 2px solid var(--neon-blue);
+  box-shadow: 0 0 .8rem rgba(96,165,250,.45);
+}
+
+/* Dzielenie – subtelna neonowa linia */
+.divider{
+  position: relative; overflow: visible;
+  background: linear-gradient(90deg, transparent, rgba(96,165,250,.5), transparent);
+}
+
+/* Selektor tekstu – ładna zaznaczona treść */
+::selection{
+  background: rgba(96,165,250,.35);
+  color: #ecfeff;
+}
+
+/* Glassy karty (lekki efekt szkła – można wyłączyć, jeśli nie chcesz) */
+.card{
+  background: rgba(15,23,42,.7);
+  backdrop-filter: saturate(1.1) blur(8px);
+}
+
+/* Respect accessibility */
+@media (prefers-reduced-motion: reduce){
+  .btn, #out .pill{ transition: none !important; }
+  .btn.primary::before{ display:none; }
+}
