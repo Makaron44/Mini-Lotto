@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Ustawienia</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="css/styles.css">
+<!-- Apple Touch Icons (iOS Home Screen) -->
+<link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-180.png">
+<link rel="apple-touch-icon" sizes="167x167" href="icons/apple-touch-icon-167.png"> <!-- iPad Pro -->
+<link rel="apple-touch-icon" sizes="152x152" href="icons/apple-touch-icon-152.png">
+<link rel="apple-touch-icon" sizes="120x120" href="icons/apple-touch-icon-120.png">
+<meta name="apple-mobile-web-app-title" content="Mini Lotto">
+<script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js'));}</script>
+</head>
+<body>
+<header>
+  <h1>Ustawienia</h1>
+  <p class="sub">Źródło danych, klucz OpenAPI, czyszczenie danych lokalnych.</p>
+  <nav class="nav">
+    <a href="index.html">Wybór liczb</a>
+    <a href="results.html">Sprawdź wyniki</a>
+    <a href="settings.html" aria-current="page">Ustawienia</a>
+  </nav>
+</header>
+<main>
+  <section class="card">
+    <div class="row">
+      <div>
+        <label for="apiKey">LOTTO OpenAPI – klucz</label>
+        <input id="apiKey" type="password" placeholder="wklej klucz API">
+      </div>
+      <div class="toolbar">
+        <button id="saveKey" class="btn primary">Zapisz klucz</button>
+        <button id="clearKey" class="btn">Usuń klucz</button>
+      </div>
+    </div>
+    <p class="small muted">Klucz jest przechowywany tylko w tej przeglądarce (localStorage).</p>
+  </section>
+
+  <section class="card">
+    <strong>Dane lokalne</strong>
+    <div class="toolbar" style="margin-top:8px">
+      <button id="clearTickets" class="btn danger">Wyczyść zapisane zestawy (IndexedDB)</button>
+      <button id="clearCache" class="btn">Przeładuj aplikację (reset cache)</button>
+    </div>
+    <p class="small muted">Jeśli widzisz starą wersję — użyj „Przeładuj aplikację”.</p>
+  </section>
+</main>
+
+<script src="js/db.js"></script>
+<script>
+const apiKeyInput = document.getElementById('apiKey');
+document.getElementById('saveKey').addEventListener('click', ()=>{ localStorage.setItem('mini-lotto-openapi-key', apiKeyInput.value.trim()); alert('Zapisano klucz OpenAPI.'); });
+document.getElementById('clearKey').addEventListener('click', ()=>{ localStorage.removeItem('mini-lotto-openapi-key'); apiKeyInput.value=''; alert('Usunięto klucz.'); });
+document.getElementById('clearTickets').addEventListener('click', async ()=>{ if (confirm('Usunąć WSZYSTKIE zapisane zestawy?')){ await DB.clearTickets(); alert('Wyczyszczono IndexedDB.'); } });
+document.getElementById('clearCache').addEventListener('click', async ()=>{
+  if ('serviceWorker' in navigator){ const regs=await navigator.serviceWorker.getRegistrations(); for(const r of regs) await r.unregister(); if (caches){ const keys=await caches.keys(); for(const k of keys) await caches.delete(k);} }
+  location.reload(true);
+});
+</script>
+</body>
+</html>

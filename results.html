@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Sprawdź wyniki — tryb Lite</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="css/styles.css">
+<!-- Apple Touch Icons (iOS Home Screen) -->
+<link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-180.png">
+<link rel="apple-touch-icon" sizes="167x167" href="icons/apple-touch-icon-167.png"> <!-- iPad Pro -->
+<link rel="apple-touch-icon" sizes="152x152" href="icons/apple-touch-icon-152.png">
+<link rel="apple-touch-icon" sizes="120x120" href="icons/apple-touch-icon-120.png">
+<meta name="apple-mobile-web-app-title" content="Mini Lotto">
+<script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js'));}</script>
+</head>
+<body>
+<header>
+  <h1>Sprawdź wyniki — tryb Lite</h1>
+  <p class="sub">Bez zewnętrznych skryptów. Działa offline. + przycisk OpenAPI.</p>
+  <nav class="nav">
+    <a href="index.html">Wybór liczb</a>
+    <a href="results.html" aria-current="page">Sprawdź wyniki</a>
+    <a href="settings.html">Ustawienia</a>
+  </nav>
+</header>
+<main>
+  <section class="card">
+    <div class="row">
+      <div>
+        <label for="gameSel">Gra</label>
+        <select id="gameSel">
+          <option value="lotto">Lotto</option>
+          <option value="eurojackpot">Eurojackpot</option>
+          <option value="ekstraPensja">Ekstra Pensja</option>
+        </select>
+      </div>
+      <div>
+        <label for="drawSel">Losowanie (wbudowane/API)</label>
+        <select id="drawSel"></select>
+      </div>
+      <div class="toolbar">
+        <button id="btnCheck" class="btn primary">Sprawdź zapisane zestawy</button>
+        <button id="btnClear" class="btn">Wyczyść</button>
+        <button id="btnFetchApi" class="btn">Załaduj z OpenAPI</button>
+        <button id="btnExport" class="btn">Eksport CSV</button>
+        <button id="btnPrint" class="btn">Drukuj / PDF</button>
+      </div>
+    </div>
+    <p class="small muted">OpenAPI wymaga klucza w Ustawieniach i zwykle HTTPS. Gdy lista pusta — użyj ręcznego wprowadzania poniżej.</p>
+  </section>
+  <section class="card">
+    <strong>Ręczne wprowadzenie</strong>
+    <div class="row">
+      <div>
+        <label for="mMain">Główne liczby (po przecinku)</label>
+        <input id="mMain" type="text" placeholder="np. 1,5,12,23,34,45">
+      </div>
+      <div id="mExtraWrap">
+        <label for="mExtra">Dodatkowe (po przecinku)</label>
+        <input id="mExtra" type="text" placeholder="np. 2,10">
+      </div>
+      <div class="toolbar"><button id="btnManual" class="btn">Sprawdź ręcznie</button></div>
+    </div>
+  </section>
+  <section id="out" class="card" hidden>
+    <div class="split"><h3 style="margin:0">Wyniki</h3><span class="small muted" id="meta"></span></div>
+    <div class="divider"></div><div id="list"></div>
+  </section>
+</main>
+<script>
+function byId(id){return document.getElementById(id)}
+function parseNums(text){return Array.from(new Set(text.split(/[,\s;]+/).map(s=>parseInt(s,10)).filter(n=>Number.isInteger(n)))).sort((a,b)=>a-b)}
+function toCSV(rows){return rows.map(r=>r.map(v=>('"'+String(v==null?'':v).replace(/"/g,'""')+'"')).join(',')).join('\r\n')}
+var GAMES={lotto:{name:'Lotto',fields:[{id:'main',label:'Główne',count:6,pool:49}]},eurojackpot:{name:'Eurojackpot',fields:[{id:'main',label:'Główne',count:5,pool:50},{id:'euro',label:'Euro liczby',count:2,pool:12}]},ekstraPensja:{name:'Ekstra Pensja',fields:[{id:'main',label:'Główne',count:5,pool:35},{id:'extra',label:'Liczba dodatkowa',count:1,pool:4}]}}
+var DEFAULT_DRAWS={lotto:[{date:'2025-09-10',main:[1,5,12,23,34,45]},{date:'2025-09-07',main:[3,14,18,29,37,42]}],eurojackpot:[{date:'2025-09-06',main:[4,11,22,33,45],extra:[2,10]},{date:'2025-09-02',main:[1,9,13,28,49],extra:[1,7]}],ekstraPensja:[{date:'2025-09-09',main:[2,6,11,18,32],extra:[3]},{date:'2025-09-05',main:[5,7,13,21,30],extra:[1]}]}
+var DRAWS=JSON.parse(JSON.stringify(DEFAULT_DRAWS)); var API_MAP={lotto:'Lotto',eurojackpot:'EuroJackpot',ekstraPensja:'EkstraPensja'};
+async function fetchOpenApiFor(gameKey){var key=localStorage.getItem('mini-lotto-openapi-key')||''; if(!key){alert('Brak klucza OpenAPI. Wejdź w Ustawienia i wklej klucz.'); return [];} var g=API_MAP[gameKey]||'Lotto'; var url='https://developers.lotto.pl/api/open/v1/lotteries/draw-results/last-results-per-game?gameType='+encodeURIComponent(g); var resp=await fetch(url,{headers:{'accept':'application/json','secret':key}}); if(!resp.ok) throw new Error('HTTP '+resp.status); var data=await resp.json(); var list=(data||[]).map((item,i)=>{var r=(item&&item.results&&item.results[0])?item.results[0]:{}; var main=Array.isArray(r.resultsJson)?r.resultsJson.map(Number):[]; var extra=Array.isArray(r.specialResults)?r.specialResults.map(Number):undefined; var date=(item&&item.drawDate)?String(item.drawDate).slice(0,10):''; return {date,main,extra,drawSystemId:(item&&item.drawSystemId)?item.drawSystemId:(i+1)};}).filter(x=>Array.isArray(x.main)&&x.main.length); return list;}
+var gameSel=byId('gameSel'), drawSel=byId('drawSel'); var btnCheck=byId('btnCheck'), btnClear=byId('btnClear'), btnManual=byId('btnManual'); var btnFetchApi=byId('btnFetchApi'), btnExport=byId('btnExport'), btnPrint=byId('btnPrint'); var mMain=byId('mMain'), mExtra=byId('mExtra'), mExtraWrap=byId('mExtraWrap'); var out=byId('out'), list=byId('list'), meta=byId('meta');
+function setManualPlaceholders(){var g=GAMES[gameSel.value]; var main=g.fields.filter(f=>f.id==='main')[0]; mMain.placeholder='np. '+Array(main.count).fill(0).map((_,i)=>i+1).join(','); var extra=g.fields.filter(f=>f.id!=='main')[0]; mExtraWrap.style.display= extra ? '' : 'none';}
+function populateDrawsFromSource(){var arr=DRAWS[gameSel.value]||[]; drawSel.innerHTML=''; if(!arr.length){var o=document.createElement('option'); o.value=''; o.textContent='Brak danych (demo/API)'; drawSel.appendChild(o); return;} arr.forEach((d,i)=>{var o=document.createElement('option'); o.value=String(i); o.textContent=d.date+' • '+d.main.join(', ')+(d.extra?'  +  '+d.extra.join(', '):''); drawSel.appendChild(o);});}
+function fmt(nums){return nums.map(n=>'<span class="pill">'+n+'</span>').join(' ')}
+function compareTicketToDraw(ticket, draw, gameKey){var map={}; ticket.fields.forEach(f=>map[f.id]=new Set(f.nums)); var mainHits=draw.main.filter(n=>map['main']&&map['main'].has(n)); var res={main:{hits:mainHits.length,numbers:mainHits}}; var g=GAMES[gameKey]; var extraF=g.fields.filter(f=>f.id!=='main')[0]; if(extraF){var set=map[extraF.id]||new Set(); var eh=(draw.extra||[]).filter(n=>set.has(n)); res.extra={hits:eh.length,numbers:eh,id:extraF.id,label:extraF.label};} return res;}
+function patternToString(p, gameKey){ if(gameKey==='lotto') return p.main.hits+'/6'; var g=GAMES[gameKey]; var extraF=g.fields.filter(f=>f.id!=='main')[0]; var mt=g.fields.filter(f=>f.id==='main')[0].count; var et=extraF?extraF.count:0; return p.main.hits+'/'+mt+' + '+(p.extra?p.extra.hits:0)+'/'+et; }
+async function tickets(gameKey){ function openDBLite(){return new Promise((res,rej)=>{var r=indexedDB.open('mini-lotto-db',1); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); r.onupgradeneeded=()=>res(r.result); }); } function listTicketsLite(g){return openDBLite().then(db=>new Promise(resolve=>{ try{ var s=db.transaction('tickets','readonly').objectStore('tickets').index('by_game').getAll(g); s.onsuccess=()=>resolve(s.result||[]); s.onerror=()=>resolve([]);}catch(e){ resolve([]);} })).catch(()=>[]);} function listTicketsFallback(g){try{var arr=JSON.parse(localStorage.getItem('mini-lotto-saved')||'[]'); return arr.filter(x=>x.gameKey===g);}catch(e){return []}} var dbArr=await listTicketsLite(gameKey); return (dbArr&&dbArr.length)?dbArr:listTicketsFallback(gameKey); }
+function render(forDraw,gameKey,label){ tickets(gameKey).then(saved=>{ list.innerHTML=''; if(!saved.length){ list.innerHTML='<div class="muted">Brak zapisanych zestawów dla tej gry.</div>'; } else { saved.forEach((t,i)=>{ var p=compareTicketToDraw(t,forDraw,gameKey); var div=document.createElement('div'); div.className='split'; var left=document.createElement('div'); var html='<div><strong>Zestaw #'+(i+1)+'</strong></div>'; t.fields.forEach(f=>{ html+='<div class="small muted">'+f.label+'</div><div style="margin:6px 0; display:flex; gap:6px; flex-wrap:wrap;">'+fmt(f.nums)+'</div>'; }); left.innerHTML=html; var right=document.createElement('div'); right.innerHTML='<div><strong>Traﬁenia:</strong> '+patternToString(p,gameKey)+'</div><div class="small muted">Główne: '+fmt(p.main.numbers)+' '+(p.extra?'• '+p.extra.label+': '+fmt(p.extra.numbers):'')+'</div>'; div.append(left,right); list.append(div, Object.assign(document.createElement('div'),{className:'divider'})); }); if(list.lastChild) list.removeChild(list.lastChild); } meta.textContent=label; out.hidden=false; }); }
+btnCheck.addEventListener('click',()=>{ var key=gameSel.value; var arr=DRAWS[key]||[]; var idx=parseInt(drawSel.value,10); if(!arr.length||isNaN(idx)||!arr[idx]){alert('Brak danych losowania.');return;} var d=arr[idx]; render(d,key,'Losowanie z '+d.date); });
+btnClear.addEventListener('click',()=>{ out.hidden=true; list.innerHTML=''; meta.textContent=''; });
+btnManual.addEventListener('click',()=>{ var key=gameSel.value; var g=GAMES[key]; var mainCount=g.fields.filter(f=>f.id==='main')[0].count; var main=parseNums(mMain.value); var extraF=g.fields.filter(f=>f.id!=='main')[0]; var extra=extraF?parseNums(mExtra.value):null; if(main.length!==mainCount){alert('Podaj dokładnie '+mainCount+' liczb głównych.');return;} if(extraF&&(!extra||extra.length!==extraF.count)){alert('Podaj dokładnie '+extraF.count+' liczb dodatkowych.');return;} render({main,extra,date:''},key,'Ręcznie wprowadzone'); });
+btnFetchApi.addEventListener('click', async()=>{ try{ var key=gameSel.value; var list=await fetchOpenApiFor(key); if(!list.length){alert('Brak danych z OpenAPI dla: '+key);return;} DRAWS[key]=list; populateDrawsFromSource(); alert('Załadowano '+list.length+' losowań z OpenAPI'); }catch(e){ console.error(e); alert('Nie udało się pobrać z OpenAPI. Sprawdź klucz/CORS/HTTPS.'); }});
+btnExport.addEventListener('click', async()=>{ try{ var key=gameSel.value; var arr=DRAWS[key]||[]; var idx=parseInt(drawSel.value,10); var d=(Array.isArray(arr)&&!isNaN(idx))?arr[idx]:null; if(!d){alert('Wybierz losowanie lub sprawdź ręcznie.');return;} var saved=await tickets(key); if(!saved.length){alert('Brak zapisanych zestawów.');return;} var rows=[['Gra','Data losowania','Zestaw','Pole','Liczby','Traﬁenia (główne)','Traﬁenia (dodatkowe)','Wzór']]; saved.forEach((t,i)=>{ var p=compareTicketToDraw(t,d,key); var pattern=patternToString(p,key); t.fields.forEach(f=>{ rows.push([t.gameName,d.date||'','#'+(i+1),f.label,f.nums.join(' '),p.main.numbers.join(' '),(p.extra?p.extra.numbers.join(' '):''),pattern]); }); }); var blob=new Blob([toCSV(rows)],{type:'text/csv;charset=utf-8'}); var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='wyniki-'+key+'-'+(d.date||'manual')+'.csv'; a.click(); URL.revokeObjectURL(a.href); }catch(e){ alert('Eksport nie powiódł się: '+e.message); }});
+btnPrint.addEventListener('click',()=>window.print());
+gameSel.addEventListener('change',()=>{ setManualPlaceholders(); populateDrawsFromSource(); });
+setManualPlaceholders(); populateDrawsFromSource();
+</script>
+</body>
+</html>

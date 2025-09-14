@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Mini Lotto — Wybór liczb</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="css/styles.css">
+<!-- Apple Touch Icons (iOS Home Screen) -->
+<link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-180.png">
+<link rel="apple-touch-icon" sizes="167x167" href="icons/apple-touch-icon-167.png"> <!-- iPad Pro -->
+<link rel="apple-touch-icon" sizes="152x152" href="icons/apple-touch-icon-152.png">
+<link rel="apple-touch-icon" sizes="120x120" href="icons/apple-touch-icon-120.png">
+<meta name="apple-mobile-web-app-title" content="Mini Lotto">
+<script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js'));}</script>
+</head>
+<body>
+<header>
+  <h1>Wybór liczb</h1>
+  <p class="sub">Zapisz swoje zestawy do porównania z wynikami.</p>
+  <nav class="nav">
+    <a href="index.html" aria-current="page">Wybór liczb</a>
+    <a href="results.html">Sprawdź wyniki</a>
+    <a href="settings.html">Ustawienia</a>
+  </nav>
+</header>
+<main>
+  <section class="card">
+    <div class="row">
+      <div>
+        <label for="game">Gra</label>
+        <select id="game">
+          <option value="lotto">Lotto</option>
+          <option value="eurojackpot">Eurojackpot</option>
+          <option value="ekstraPensja">Ekstra Pensja</option>
+        </select>
+      </div>
+      <div>
+        <label for="main">Liczby główne (po przecinku)</label>
+        <input id="main" type="text" placeholder="np. 1,5,12,23,34,45">
+      </div>
+      <div>
+        <label for="extra">Liczby dodatkowe (po przecinku, jeśli dotyczy)</label>
+        <input id="extra" type="text" placeholder="np. 2,10">
+      </div>
+      <div class="toolbar">
+        <button id="save" class="btn primary">Zapisz zestaw</button>
+        <button id="rand" class="btn">🎲 Losuj</button>
+        <button id="randSave" class="btn">🎲 Losuj + Zapisz</button>
+        <button id="clearAll" class="btn danger">Usuń wszystkie</button>
+      </div>
+    </div>
+    <p class="small muted" id="hint">Lotto: 6 liczb. Eurojackpot: 5 + 2. Ekstra Pensja: 5 + 1.</p>
+    <div id="preview" class="small" style="margin-top:8px; display:none">
+      <div class="divider"></div>
+      <div class="split">
+        <div><strong>Podgląd losowania</strong></div>
+        <div class="toolbar"><button id="copyPreview" class="btn">Kopiuj</button></div>
+      </div>
+      <div id="previewBody" style="margin-top:6px"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="split">
+      <h3 style="margin:0">Zapisane zestawy</h3>
+      <button id="refresh" class="btn">Odśwież</button>
+    </div>
+    <div class="divider"></div>
+    <div id="savedList"></div>
+  </section>
+</main>
+
+<script src="js/db.js"></script>
+<script src="js/pwa.js"></script>
+<script>
+const GAMES = {
+  lotto: { name:'Lotto', fields:[{id:'main',label:'Główne',count:6,pool:49}] },
+  eurojackpot: { name:'Eurojackpot', fields:[{id:'main',label:'Główne',count:5,pool:50},{id:'euro',label:'Euro liczby',count:2,pool:12}] },
+  ekstraPensja: { name:'Ekstra Pensja', fields:[{id:'main',label:'Główne',count:5,pool:35},{id:'extra',label:'Liczba dodatkowa',count:1,pool:4}] }
+};
+const gameSel = document.getElementById('game');
+const mainInput = document.getElementById('main');
+const extraInput = document.getElementById('extra');
+const savedList = document.getElementById('savedList');
+const hint = document.getElementById('hint');
+
+function parseNums(text){
+  return Array.from(new Set(text.split(/[,\s;]+/).map(s => parseInt(s,10)).filter(n => Number.isInteger(n)))).sort((a,b)=>a-b);
+}
+function updateHints(){
+  const g = GAMES[gameSel.value];
+  const mainF = g.fields.find(f=>f.id==='main');
+  mainInput.placeholder = 'np. ' + Array(mainF.count).fill(0).map((_,i)=>i+1).join(',');
+  const extraF = g.fields.find(f=>f.id!=='main');
+  if (extraF) { extraInput.parentElement.style.display=''; extraInput.placeholder = 'np. ' + Array(extraF.count).fill(0).map((_,i)=>i+1).join(','); }
+  else { extraInput.parentElement.style.display='none'; extraInput.value=''; }
+  hint.textContent = (gameSel.value==='lotto') ? 'Lotto: 6 liczb.' :
+                     (gameSel.value==='eurojackpot') ? 'Eurojackpot: 5 liczb głównych + 2 euro liczby.' :
+                     'Ekstra Pensja: 5 liczb + 1 dodatkowa.';
+}
+async function renderSaved(){
+  const arr = await DB.listTickets(gameSel.value);
+  savedList.innerHTML = '';
+  if (!arr.length){
+    savedList.innerHTML = '<div class="muted">Brak zapisanych zestawów dla tej gry.</div>';
+    return;
+  }
+  arr.forEach((t) => {
+    const div = document.createElement('div'); div.className='split';
+    const left = document.createElement('div');
+    let html = `<div style="font-weight:700">${t.gameName}</div>`;
+    t.fields.forEach(f=>{
+      html += `<div class="small muted">${f.label}</div>
+               <div style="margin:6px 0; display:flex; gap:6px; flex-wrap:wrap;">${f.nums.map(n=>`<span class="pill">${n}</span>`).join(' ')}</div>`;
+    });
+    left.innerHTML = html;
+    const right = document.createElement('div');
+    const del = document.createElement('button'); del.className='btn ghost'; del.textContent='Usuń'; del.onclick = async()=>{ await DB.removeTicket(t.id); renderSaved(); };
+    const copy = document.createElement('button'); copy.className='btn'; copy.textContent='Kopiuj'; copy.onclick = ()=>{
+      const text = t.fields.map(f=>`${f.label}: ${f.nums.join(', ')}`).join(' | ');
+      navigator.clipboard.writeText(`${t.gameName} — ${text}`); copy.textContent='Skopiowano!'; setTimeout(()=>copy.textContent='Kopiuj', 1200);
+    };
+    right.append(copy, del);
+    div.append(left, right);
+    savedList.append(div, Object.assign(document.createElement('div'), {className:'divider'}));
+  });
+  if (savedList.lastChild) savedList.removeChild(savedList.lastChild);
+}
+
+// Random (Quick Pick) + preview
+function randUnique(count, pool){
+  const out=[]; while(out.length<count){ const n=Math.floor(Math.random()*pool)+1; if(!out.includes(n)) out.push(n); }
+  return out.sort((a,b)=>a-b);
+}
+function renderPreview(fields){
+  const wrap=document.getElementById('preview'); const body=document.getElementById('previewBody');
+  let html=''; fields.forEach(f=>{ html += `<div class="small muted">${f.label}</div>
+      <div style="margin:6px 0; display:flex; gap:6px; flex-wrap:wrap;">${f.nums.map(n=>`<span class="pill">${n}</span>`).join(' ')}</div>`; });
+  body.innerHTML=html; wrap.style.display='';
+}
+
+document.getElementById('rand').addEventListener('click', ()=>{
+  const g=GAMES[gameSel.value]; const mainF=g.fields.find(f=>f.id==='main'); const extraF=g.fields.find(f=>f.id!=='main');
+  const main=randUnique(mainF.count, mainF.pool); mainInput.value=main.join(',');
+  let fields=[{id:'main',label:mainF.label,nums:main}];
+  if(extraF){ const extra=randUnique(extraF.count, extraF.pool); extraInput.value=extra.join(','); fields.push({id:extraF.id,label:extraF.label,nums:extra}); } else { extraInput.value=''; }
+  renderPreview(fields);
+});
+document.getElementById('randSave').addEventListener('click', async ()=>{
+  document.getElementById('rand').click(); await new Promise(r=>setTimeout(r,20)); document.getElementById('save').click();
+});
+document.getElementById('copyPreview').addEventListener('click', ()=>{
+  const text=document.getElementById('previewBody').textContent.replace(/\s+/g,' ').trim();
+  navigator.clipboard.writeText(text); const btn=document.getElementById('copyPreview'); btn.textContent='Skopiowano!'; setTimeout(()=>btn.textContent='Kopiuj',1200);
+});
+
+document.getElementById('save').addEventListener('click', async ()=>{
+  const g = GAMES[gameSel.value];
+  const mainF = g.fields.find(f=>f.id==='main');
+  const main = parseNums(mainInput.value);
+  if (main.length !== mainF.count){ alert('Podaj dokładnie '+mainF.count+' liczb głównych.'); return; }
+  const fields = [{ id:'main', label: mainF.label, nums: main }];
+  const extraF = g.fields.find(f=>f.id!=='main');
+  if (extraF){
+    const extra = parseNums(extraInput.value);
+    if (extra.length !== extraF.count){ alert('Podaj dokładnie '+extraF.count+' liczb dodatkowych.'); return; }
+    fields.push({ id: extraF.id, label: extraF.label, nums: extra });
+  }
+  await DB.addTicket({ gameKey: gameSel.value, gameName: g.name, fields, ts: new Date().toISOString() });
+  mainInput.value=''; extraInput.value='';
+  renderSaved();
+});
+
+document.getElementById('clearAll').addEventListener('click', async ()=>{
+  if (confirm('Usunąć wszystkie zapisane zestawy?')){ await DB.clearTickets(); renderSaved(); }
+});
+document.getElementById('refresh').addEventListener('click', renderSaved);
+gameSel.addEventListener('change', ()=>{ updateHints(); renderSaved(); });
+
+// init
+DB.migrateLocalStorageTickets().then(()=>{ updateHints(); renderSaved(); });
+</script>
+</body>
+</html>
